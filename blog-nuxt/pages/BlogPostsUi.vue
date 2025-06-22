@@ -55,10 +55,10 @@ const columns: TableColumn<Post>[] = [
         header: 'Заголовок',
         cell: ({ row }) => {
             const post = row.original
-            return h('a', {
-                href: `http://localhost/admin/blog/posts/${post.id}/edit`,
-                class: 'text-primary hover:underline font-medium'
-            }, post.title)
+            return h(resolveComponent('NuxtLink'), {
+                to: `/posts/${post.id}`,
+                class: 'text-primary hover:underline font-medium hover:text-primary-600 transition-colors'
+            }, () => post.title)
         }
     },
     {
