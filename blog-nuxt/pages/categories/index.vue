@@ -2,82 +2,70 @@
 import { getPaginationRowModel } from '@tanstack/vue-table'
 import type { TableColumn, DropdownMenuItem } from '@nuxt/ui'
 
-interface User {
+interface ParentCategory {
     id: number
-    name: string
+    title: string
 }
 
 interface Category {
     id: number
     title: string
+    description: string | null
+    parent_id: number
+    parent_category: ParentCategory | null
+    created_at: string | null
+    updated_at: string | null
 }
 
-interface Post {
-    id: number
-    title: string
-    published_at: string | null
-    user: User | null
-    category: Category | null
-}
-
-interface GetPostsResponse {
+interface GetCategoriesResponse {
     success: boolean
-    data: Post[]
+    data: Category[]
 }
 
 const table = useTemplateRef('table')
 const toast = useToast()
 
-const { data: posts, status, refresh } = await useFetch<GetPostsResponse>('http://localhost/api/blog/posts', {
-    key: 'blog-posts',
+const { data: categories, status, refresh } = await useFetch<GetCategoriesResponse>('http://localhost/api/blog/categories', {
+    key: 'blog-categories',
     transform: (data) => {
         return data?.data || []
     },
     lazy: true
 })
 
-const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-'
-    return new Date(dateString).toLocaleDateString('uk-UA', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-    })
-}
-
-const deletePost = async (postId: number) => {
+const deleteCategory = async (categoryId: number) => {
     try {
-        const { success, message } = await $fetch(`http://localhost/api/blog/posts/${postId}`, {
+        const { success, message } = await $fetch(`http://localhost/api/blog/categories/${categoryId}`, {
             method: 'DELETE'
         })
 
         if (success) {
             toast.add({
                 title: 'Успіх',
-                description: message || 'Пост успішно видалено',
+                description: message || 'Категорію успішно видалено',
                 color: 'success',
                 icon: 'i-heroicons-check-circle'
             })
             await refresh()
         }
-    } catch (error) {
+    } catch (error: any) {
         toast.add({
             title: 'Помилка',
-            description: 'Не вдалося видалити пост',
+            description: error.data?.message || 'Не вдалося видалити категорію',
             color: 'error',
             icon: 'i-heroicons-x-circle'
         })
     }
 }
 
-const getDropdownActions = (post: Post): DropdownMenuItem[][] => {
+const getDropdownActions = (category: Category): DropdownMenuItem[][] => {
     return [
         [
             {
                 label: 'Редагувати',
                 icon: 'i-heroicons-pencil-square',
                 onSelect: () => {
-                    navigateTo(`/posts/edit/${post.id}`)
+                    navigateTo(`/categories/edit/${category.id}`)
                 }
             }
         ],
@@ -87,14 +75,14 @@ const getDropdownActions = (post: Post): DropdownMenuItem[][] => {
                 icon: 'i-heroicons-trash',
                 color: 'error',
                 onSelect: () => {
-                    deletePost(post.id)
+                    deleteCategory(category.id)
                 }
             }
         ]
     ]
 }
 
-const columns: TableColumn<Post>[] = [
+const columns: TableColumn<Category>[] = [
     {
         accessorKey: 'id',
         header: 'ID',
@@ -102,36 +90,26 @@ const columns: TableColumn<Post>[] = [
     },
     {
         accessorKey: 'title',
-        header: 'Заголовок',
+        header: 'Назва',
         cell: ({ row }) => {
-            const post = row.original
-            return h(resolveComponent('NuxtLink'), {
-                to: `/posts/${post.id}`,
-                class: 'text-primary hover:underline font-medium hover:text-primary-600 transition-colors'
-            }, () => post.title)
+            const category = row.original
+            return h('span', { class: 'font-medium' }, category.title)
         }
     },
     {
-        accessorKey: 'user',
-        header: 'Автор',
+        accessorKey: 'parent_category',
+        header: 'Батьківська категорія',
         cell: ({ row }) => {
-            const user = row.original.user
-            return user?.name || 'Невідомий автор'
+            const parentCategory = row.original.parent_category
+            return parentCategory?.title || 'Корінь'
         }
     },
     {
-        accessorKey: 'category',
-        header: 'Категорія',
+        accessorKey: 'description',
+        header: 'Опис',
         cell: ({ row }) => {
-            const category = row.original.category
-            return category?.title || 'Без категорії'
-        }
-    },
-    {
-        accessorKey: 'published_at',
-        header: 'Дата публікації',
-        cell: ({ row }) => {
-            return formatDate(row.getValue('published_at'))
+            const description = row.getValue('description') as string | null
+            return description || '-'
         }
     },
     {
@@ -151,10 +129,10 @@ const pagination = ref({
         <div class="space-y-6">
             <div class="flex justify-between items-center">
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-                    Усі пости
+                    Усі категорії
                 </h1>
                 <UButton
-                    to="/posts/create"
+                    to="/categories/create"
                     color="primary"
                     variant="solid"
                     size="md"
@@ -162,7 +140,7 @@ const pagination = ref({
                     <template #leading>
                         <UIcon name="i-heroicons-plus" />
                     </template>
-                    Додати пост
+                    Додати категорію
                 </UButton>
             </div>
 
@@ -170,7 +148,7 @@ const pagination = ref({
                 <UTable
                     ref="table"
                     v-model:pagination="pagination"
-                    :data="posts"
+                    :data="categories"
                     :columns="columns"
                     :loading="status === 'pending'"
                     :pagination-options="{
